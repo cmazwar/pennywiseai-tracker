@@ -58,7 +58,7 @@ class TransactionsViewModel @Inject constructor(
     private val _sortOption = MutableStateFlow(SortOption.DATE_NEWEST)
     val sortOption: StateFlow<SortOption> = _sortOption.asStateFlow()
 
-    private val _selectedCurrency = MutableStateFlow("INR") // Default to INR
+    private val _selectedCurrency = MutableStateFlow("INR") // Will be initialized from preferences
     val selectedCurrency: StateFlow<String> = _selectedCurrency.asStateFlow()
 
     private val _isUnifiedMode = MutableStateFlow(false)
@@ -205,13 +205,22 @@ class TransactionsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 3
         )
-    
+
+    private val smsScanAllTime: StateFlow<Boolean> = userPreferencesRepository.smsScanAllTime
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     fun isShowingLimitedData(): Boolean {
+        if (smsScanAllTime.value) return false
+
         val currentPeriod = _selectedPeriod.value
         val scanMonthsValue = smsScanMonths.value
 
         return when (currentPeriod) {
-            TimePeriod.ALL -> true  // Always show for "All Time"
+            TimePeriod.ALL -> true
             TimePeriod.CURRENT_FY -> {
                 // Check if FY start is before scan period
                 val dateRange = getDateRangeForPeriod(TimePeriod.CURRENT_FY)
@@ -239,8 +248,13 @@ class TransactionsViewModel @Inject constructor(
     }
     
     init {
+        // Initialize selectedCurrency from baseCurrency preference
+        viewModelScope.launch {
+        }
+
         // Load unified mode preferences
         viewModelScope.launch {
+            val baseCurrency = userPreferencesRepository.baseCurrency.first()
             combine(
                 userPreferencesRepository.unifiedCurrencyMode,
                 userPreferencesRepository.displayCurrency
@@ -250,6 +264,8 @@ class TransactionsViewModel @Inject constructor(
                 _isUnifiedMode.value = unifiedMode
                 if (unifiedMode) {
                     _selectedCurrency.value = displayCurrency
+                } else {
+                    _selectedCurrency.value = baseCurrency
                 }
             }
         }
@@ -273,21 +289,48 @@ class TransactionsViewModel @Inject constructor(
                 val category = categoryFilter.value
                 val categories = categoriesFilter.value
                 val typeFilter = transactionTypeFilter.value
-                val currency = selectedCurrency.value
                 val sort = sortOption.value
                 val isUnified = _isUnifiedMode.value
 
-                // Get filtered transactions
+                // Get filtered transactions (without currency filter first)
                 getFilteredTransactions(query, period, category, categories, typeFilter)
                     .collect { transactions ->
                         if (isUnified) {
                             // Show all transactions regardless of currency
                             emit(sortTransactions(transactions, sort))
                         } else {
-                            // Filter by currency
+                            // Calculate available currencies from ALL filtered transactions (before currency filtering)
+                            val allAvailableCurrencies = CurrencyUtils.sortCurrencies(
+                                transactions.map { it.currency }.distinct()
+                            )
+
+                            // Auto-select primary currency if current currency doesn't exist in available currencies
+                            val currentCurrency = selectedCurrency.value
+                            val finalCurrency =
+                                if (allAvailableCurrencies.isNotEmpty() && !allAvailableCurrencies.contains(
+                                        currentCurrency
+                                    )
+                                ) {
+                                    // Auto-select: prefer baseCurrency from preferences, then first available
+                                    val baseCurrency =
+                                        userPreferencesRepository.baseCurrency.first()
+                                    val newCurrency =
+                                        if (allAvailableCurrencies.contains(baseCurrency)) {
+                                            baseCurrency
+                                        } else {
+                                            allAvailableCurrencies.first()
+                                        }
+                                    _selectedCurrency.value = newCurrency
+                                    newCurrency
+                                } else {
+                                    currentCurrency
+                                }
+
+                            // Now filter by the selected currency (which may have just been auto-selected)
                             val currencyFilteredTransactions = transactions.filter {
-                                it.currency.equals(currency, ignoreCase = true)
+                                it.currency.equals(finalCurrency, ignoreCase = true)
                             }
+
                             emit(sortTransactions(currencyFilteredTransactions, sort))
                         }
                     }

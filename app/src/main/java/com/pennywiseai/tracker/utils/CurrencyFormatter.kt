@@ -28,6 +28,7 @@ object CurrencyFormatter {
         "AUD" to "A$",
         "JPY" to "¥",
         "CNY" to "¥",
+        "IRR" to "﷼",
         "NPR" to "₨",
         "ETB" to "ብር",
         "THB" to "฿",
@@ -51,6 +52,7 @@ object CurrencyFormatter {
         "JPY" to Locale.JAPAN,
         "CNY" to Locale.CHINA,
         "PKR" to Locale.Builder().setLanguage("en").setRegion("PK").build(),
+        "IRR" to Locale.Builder().setLanguage("fa").setRegion("IR").build(),
         "NPR" to Locale.Builder().setLanguage("ne").setRegion("NP").build(),
         "ETB" to Locale.Builder().setLanguage("am").setRegion("ET").build(),
         "THB" to Locale.Builder().setLanguage("th").setRegion("TH").build(),
@@ -63,7 +65,6 @@ object CurrencyFormatter {
      * Formats a BigDecimal amount as currency with the specified currency code
      */
     fun formatCurrency(amount: BigDecimal, currencyCode: String = "INR"): String {
-        // Special handling for PKR to use "Rs" instead of "₨" due to font issues in some environments
         if (currencyCode == "PKR") {
             return "${CURRENCY_SYMBOLS["PKR"]}${formatAmount(amount)}"
         }

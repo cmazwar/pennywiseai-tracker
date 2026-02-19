@@ -15,12 +15,6 @@ class FaysalBankParserTest {
 
     @TestFactory
     fun `faysal bank parser handles ibft notifications`(): List<DynamicTest> {
-        ParserTestUtils.printTestHeader(
-            parserName = "Faysal Bank (Pakistan)",
-            bankName = parser.getBankName(),
-            currency = parser.getCurrency()
-        )
-
         val cases = listOf(
             ParserTestCase(
                 name = "Outgoing IBFT to Demo Recipient",
@@ -62,7 +56,7 @@ class FaysalBankParserTest {
                 )
             ),
             ParserTestCase(
-                name = "Incoming IBFT from TANBITS",
+                name = "Incoming IBFT from ACME Services",
                 message = "PKR 250,000.00 received from ACME SERVICES  A/C *4388 in FBL A/C *1234 on 06/FEB/2026 at 02:19 PM",
                 sender = "FBL",
                 expected = ExpectedTransaction(

@@ -62,4 +62,6 @@ release.properties
 
 deploy.sh
 
-.idea/
+# IDE folders
+.idea
+.vscode
